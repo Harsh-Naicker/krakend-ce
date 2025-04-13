@@ -31,6 +31,13 @@ func NewHandlerFactory(logger logging.Logger, metricCollector *metrics.Metrics, 
 
 	return func(cfg *config.EndpointConfig, p proxy.Proxy) gin.HandlerFunc {
 		logger.Debug(fmt.Sprintf("[ENDPOINT: %s] Building the http handler", cfg.Endpoint))
+
+		// Check if this is an SSE endpoint
+		if _, ok := cfg.ExtraConfig["sse"]; ok {
+			sseFactory := NewSSEHandlerFactory(logger, metricCollector)
+			return sseFactory.NewHandler(cfg, p)
+		}
+
 		return handlerFactory(cfg, p)
 	}
 }
