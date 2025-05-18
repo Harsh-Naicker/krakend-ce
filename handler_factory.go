@@ -113,6 +113,9 @@ func (s *SSEHandlerFactory) NewHandler(cfg *config.EndpointConfig, prxy proxy.Pr
 		c.Header("Connection", "keep-alive")
 		c.Header("X-Accel-Buffering", "no")
 
+		// Make sure a 200 status is set early
+		c.Status(http.StatusOK)
+
 		// Get SSE config
 		var sseCfg SSEConfig
 		if v, ok := cfg.ExtraConfig["sse"]; ok && v != nil {
@@ -155,14 +158,18 @@ func (s *SSEHandlerFactory) NewHandler(cfg *config.EndpointConfig, prxy proxy.Pr
 		// Manually construct the backend URL
 		if len(cfg.Backend) == 0 {
 			s.logger.Error("No backend configured for SSE endpoint")
-			c.AbortWithStatus(http.StatusInternalServerError)
+			// Don't abort here, just log the error
+			c.Writer.Write([]byte("event: error\ndata: {\"message\":\"No backend configured\"}\n\n"))
+			c.Writer.Flush()
 			return
 		}
 
 		backendConfig := cfg.Backend[0]
 		if len(backendConfig.Host) == 0 {
 			s.logger.Error("No host configured for SSE backend")
-			c.AbortWithStatus(http.StatusInternalServerError)
+			// Don't abort here, just log the error
+			c.Writer.Write([]byte("event: error\ndata: {\"message\":\"No host configured\"}\n\n"))
+			c.Writer.Flush()
 			return
 		}
 
@@ -182,7 +189,9 @@ func (s *SSEHandlerFactory) NewHandler(cfg *config.EndpointConfig, prxy proxy.Pr
 		rawBody, exists := c.Get("rawBody")
 		if !exists {
 			s.logger.Error("Request body not found in context")
-			c.AbortWithStatus(http.StatusInternalServerError)
+			// Don't abort here, just log the error
+			c.Writer.Write([]byte("event: error\ndata: {\"message\":\"Request body not found\"}\n\n"))
+			c.Writer.Flush()
 			return
 		}
 		bodyBytes := rawBody.([]byte)
@@ -193,7 +202,9 @@ func (s *SSEHandlerFactory) NewHandler(cfg *config.EndpointConfig, prxy proxy.Pr
 
 		if err != nil {
 			s.logger.Error("Error creating backend request:", err)
-			c.AbortWithStatus(http.StatusInternalServerError)
+			// Don't abort here, just log the error
+			c.Writer.Write([]byte(fmt.Sprintf("event: error\ndata: {\"message\":\"Error creating request: %s\"}\n\n", err)))
+			c.Writer.Flush()
 			return
 		}
 
@@ -206,16 +217,19 @@ func (s *SSEHandlerFactory) NewHandler(cfg *config.EndpointConfig, prxy proxy.Pr
 		resp, err := client.Do(req)
 		if err != nil {
 			s.logger.Error("Error making backend request:", err)
-			c.AbortWithStatus(http.StatusInternalServerError)
+			// Don't abort here, just log the error
+			c.Writer.Write([]byte(fmt.Sprintf("event: error\ndata: {\"message\":\"Error connecting to backend: %s\"}\n\n", err)))
+			c.Writer.Flush()
 			return
 		}
 		defer resp.Body.Close()
 
-		// Check response status
+		// Check response status - but don't abort the connection
 		if resp.StatusCode != http.StatusOK {
-			s.logger.Error(fmt.Sprintf("Backend returned non-200 status: %d", resp.StatusCode))
-			c.AbortWithStatus(resp.StatusCode)
-			return
+			s.logger.Warning(fmt.Sprintf("Backend returned non-200 status: %d", resp.StatusCode))
+			c.Writer.Write([]byte(fmt.Sprintf("event: warning\ndata: {\"message\":\"Backend returned status %d\"}\n\n", resp.StatusCode)))
+			c.Writer.Flush()
+			// Continue processing anyway - don't abort or return here
 		}
 
 		// Stream the response

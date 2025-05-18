@@ -15,11 +15,23 @@
       },
       "backend": [
         {
-          "url_pattern": "/events",
+          "url_pattern": "/api/events",
           "method": "GET",
-          "host": ["http://localhost:8081"]
+          "host": ["http://localhost:5555"]
+        }
+      ]
+    },
+    {
+      "endpoint": "/api",
+      "method": "GET",
+      "output_encoding": "no-op",
+      "backend": [
+        {
+          "url_pattern": "/api/data",
+          "method": "GET",
+          "host": ["http://localhost:5555"]
         }
       ]
     }
   ]
-} 
+}
