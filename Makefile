@@ -66,8 +66,8 @@ test: build
 	go test -v ./tests
 
 cmd/krakend-ce/schema/schema.json:
-	@echo "Fetching v2.9 schema"
-	curl -o cmd/krakend-ce/schema/schema.json https://www.krakend.io/schema/v2.9/krakend.json
+	@echo "Fetching v${SCHEMA_VERSION} schema"
+	@wget -qO $@ https://raw.githubusercontent.com/krakend/krakend-schema/refs/heads/main/v${SCHEMA_VERSION}/krakend.json || wget -qO $@ https://krakend.io/schema/krakend.json
 
 # Build KrakenD using docker (defaults to whatever the golang container uses)
 build_on_docker: docker-builder-linux
