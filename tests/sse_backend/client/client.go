@@ -16,7 +16,7 @@ func main() {
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 
 	// Make the SSE request
-	resp, err := http.Get("http://localhost:8081/events")
+	resp, err := http.Get("http://localhost:8080/events")
 	if err != nil {
 		fmt.Printf("Error making request: %v\n", err)
 		return
